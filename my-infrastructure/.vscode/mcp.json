@@ -1,0 +1,20 @@
+{
+  "servers": {
+    "terraform": {
+      "type": "stdio",
+      "command": "/usr/local/bin/docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "hashicorp/terraform-mcp-server:0.2.3"
+      ]
+    }
+  }
+}
+
+//important tagging
+
+// even more important tagging\\
+
+//even more important tagging

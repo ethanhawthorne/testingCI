@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Node local artifacts
+node_modules/
+package.json
+package-lock.json
+
+# Local scratch/new scaffold
+terraform-reset/
+
+# Terraform local/cache files (root-level safety)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
