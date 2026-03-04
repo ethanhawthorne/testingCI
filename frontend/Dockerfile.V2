@@ -1,0 +1,46 @@
+# ---- Stage 1: Build ----
+# Part A: node:20-alpine is the smallest builder image (~175 MB compressed)
+#         Safe to use here because all frontend deps are pure-JS (no native addons)
+FROM node:20-alpine AS builder
+
+WORKDIR /usr/src/app
+
+# Part E: Copy dependency manifests first (layer caching)
+#         This layer is re-used on rebuilds until package.json changes
+COPY package*.json ./
+# Part C: --no-audit --no-fund suppress network checks; keeps this layer lean
+RUN npm ci --no-audit --no-fund
+
+# Copy source (changes more often → later layer)
+COPY . .
+
+# Compile TypeScript
+RUN npm run build
+
+# Part C: Prune dev deps in-place then wipe npm cache — runtime stage copies
+#         these node_modules directly, so no second `npm install` is needed
+RUN npm prune --omit=dev && npm cache clean --force
+
+# ---- Stage 2: Runtime ----
+# Part A: distroless is ~180 MB uncompressed vs ~500 MB for node:20-alpine —
+#         it contains only Node.js and glibc, nothing else
+# Part F: :nonroot variant automatically runs as uid 65532 (non-root), so no
+#         adduser/addgroup commands are needed
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /usr/src/app
+
+# Part E: copy compiled output + static assets
+# --chown ensures the nonroot user (65532) owns every file
+COPY --from=builder --chown=65532:65532 /usr/src/app/dist ./dist
+COPY --from=builder --chown=65532:65532 /usr/src/app/views ./views
+COPY --from=builder --chown=65532:65532 /usr/src/app/public ./public
+
+# Part C: copy the already-pruned production node_modules from the builder —
+#         avoids a second network download entirely
+COPY --from=builder --chown=65532:65532 /usr/src/app/node_modules ./node_modules
+
+EXPOSE 3000
+# distroless ENTRYPOINT is /nodejs/bin/node — pass script path as CMD arg
+CMD ["dist/index.js"]

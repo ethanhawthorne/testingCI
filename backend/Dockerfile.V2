@@ -1,0 +1,62 @@
+# ---- Stage 1: Build ----
+# Part A: node:20-slim (debian/glibc) must match the distroless runtime's libc
+#         so that native addons (bcrypt) built here run in the final image
+FROM node:20-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /usr/src/app
+
+# Part E: copy manifests first — layer is cached until package.json changes
+COPY package*.json ./
+# Part C: --no-audit --no-fund suppress network checks; keeps this layer lean
+RUN npm ci --no-audit --no-fund
+
+COPY . .
+
+# Part C: SSL workaround for Prisma binary download (build stage only)
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+RUN npx prisma generate --schema=prisma/schema.prisma
+ENV NODE_TLS_REJECT_UNAUTHORIZED=1
+
+RUN npm run build
+
+# Part C: Prune dev deps in-place, then aggressively remove known large
+#         packages that are NOT needed at runtime when using adapter-pg:
+#   @prisma/studio-core  – Prisma Studio UI (~26 MB)
+#   @prisma/engines      – native/wasm query engine binaries (~19 MB)
+#   prisma               – CLI tool, only used for migrations/generate (~36 MB)
+#   typescript           – compiler, only needed at build time (~23 MB)
+#   Any residual *.wasm engine files inside @prisma/client
+RUN npm prune --omit=dev && \
+    rm -rf node_modules/@prisma/studio-core \
+           node_modules/@prisma/engines \
+           node_modules/prisma \
+           node_modules/typescript && \
+    find node_modules -name "*.wasm" -path "*query*" -delete 2>/dev/null || true && \
+    find node_modules -name "libquery_engine*" -delete 2>/dev/null || true && \
+    npm cache clean --force
+
+# ---- Stage 2: Runtime ----
+# Part A: distroless is ~180 MB uncompressed vs ~500 MB for node:20-alpine —
+#         it contains only Node.js and glibc, nothing else
+# Part F: :nonroot variant automatically runs as uid 65532 (non-root), so no
+#         adduser/addgroup commands are needed
+FROM gcr.io/distroless/nodejs20-debian12:nonroot AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /usr/src/app
+
+# Part E: copy compiled output first (changes with every code change)
+# --chown ensures the nonroot user (65532) owns every file
+COPY --from=builder --chown=65532:65532 /usr/src/app/dist ./dist
+
+# Part C: copy the already-pruned + cleaned production node_modules from the
+#         builder — avoids a second network download entirely and brings the
+#         Prisma generated client along for free (no separate COPY needed)
+COPY --from=builder --chown=65532:65532 /usr/src/app/node_modules ./node_modules
+
+EXPOSE 3001
+# distroless ENTRYPOINT is /nodejs/bin/node — pass script path as CMD arg
+CMD ["dist/index.js"]

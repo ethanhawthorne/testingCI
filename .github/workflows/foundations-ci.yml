@@ -269,9 +269,9 @@ jobs:
           FRONT_IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME_FRONT }}:${{ env.IMAGE_TAG_SHA }}"
           if az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" >/dev/null 2>&1; then
             retry_cmd "az containerapp registry set -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --server '${{ env.ACR_LOGIN_SERVER }}' --username '$ACR_USER' --password '$ACR_PASS'"
-            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --image '$FRONT_IMAGE'"
+            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --image '$FRONT_IMAGE' --target-port 3000"
           else
-            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$FRONT_IMAGE' --target-port 80 --ingress external --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS'"
+            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$FRONT_IMAGE' --target-port 3000 --ingress external --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS'"
           fi
 
       - name: Show frontend URL

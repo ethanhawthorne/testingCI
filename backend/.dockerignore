@@ -1,0 +1,44 @@
+# Dependencies (reinstalled inside container)
+node_modules
+
+# Git
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+Dockerfile.*
+.dockerignore
+
+# Environment files (secrets — inject at runtime)
+.env
+.env.*
+
+# Test files & scripts
+test/
+vitest.config.ts
+prisma/test-scripts/
+
+# Build artifacts & reports
+coverage/
+playwright-report/
+test-results/
+dist/
+
+# Documentation
+README.md
+*.md
+
+# Linter / formatter config (not needed at runtime)
+biome.json
+
+# Prisma local config (used by CLI only, not at runtime)
+prisma.config.ts
+
+# Logs
+npm-debug.log
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/

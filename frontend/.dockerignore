@@ -1,0 +1,44 @@
+# Dependencies (reinstalled inside container)
+node_modules
+
+# Git
+.git
+.gitignore
+
+# Docker files
+Dockerfile
+Dockerfile.*
+.dockerignore
+
+# Environment files (secrets - inject at runtime)
+.env
+.env.*
+
+# Test files & E2E
+test/
+tests/
+test-results/
+vitest.config.ts
+playwright.config.ts
+cucumber.json
+cucumber-report.html
+
+# Build artifacts & reports
+coverage/
+playwright-report/
+dist/
+
+# Documentation
+README.md
+*.md
+
+# Linter / formatter config (not needed at runtime)
+biome.json
+
+# Logs
+npm-debug.log
+*.log
+
+# Editor/IDE
+.vscode/
+.idea/
