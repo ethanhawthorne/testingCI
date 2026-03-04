@@ -3,8 +3,8 @@
 
 # Node local artifacts
 node_modules/
-package.json
-package-lock.json
+/package.json
+/package-lock.json
 
 # Local scratch/new scaffold
 terraform-reset/
