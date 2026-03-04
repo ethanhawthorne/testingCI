@@ -1,6 +1,8 @@
 terraform {
   required_version = ">= 1.5.0"
 
+  backend "azurerm" {}
+
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -14,12 +16,13 @@ provider "azurerm" {
 }
 
 locals {
-  storage_account_name = "st${substr(md5(var.resource_group_name), 0, 22)}"
+  effective_resource_group_name = var.resource_group_name != "" ? var.resource_group_name : "${var.project_name}-${var.environment}-rg"
+  storage_account_name          = "st${substr(md5(local.effective_resource_group_name), 0, 22)}"
 }
 
 module "resource_group" {
   source   = "./modules/resource-group"
-  name     = var.resource_group_name
+  name     = local.effective_resource_group_name
   location = var.location
   tags     = var.tags
 }
