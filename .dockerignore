@@ -1,0 +1,7 @@
+.git
+.github
+terraform-reset
+node_modules
+**/.terraform
+**/*.tfstate
+**/*.tfstate.*
