@@ -19,8 +19,8 @@ env:
   AZURE_CLIENT_ID: "9f0df855-a264-41df-9458-e7260b67251f"
   AZURE_TENANT_ID: "4d914164-b009-4eec-88f4-a623fbcb11ef"
   AZURE_SUBSCRIPTION_ID: "b69dedcd-cfb8-4ec6-ba75-987e53dd2fd2"
-  ACR_NAME: ${{ secrets.ACR_NAME }}
-  ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+  ACR_NAME: "EthanHContaineRreg"
+  ACR_LOGIN_SERVER: "ethanhcontainerreg.azurecr.io"
   TF_STATE_RESOURCE_GROUP: ${{ secrets.TF_STATE_RESOURCE_GROUP }}
   TF_STATE_STORAGE_ACCOUNT: ${{ secrets.TF_STATE_STORAGE_ACCOUNT }}
   TF_STATE_CONTAINER: ${{ secrets.TF_STATE_CONTAINER }}
@@ -154,7 +154,7 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Init (branch preview)
-        run: terraform init -backend=false
+        run: terraform init -backend=false -reconfigure
 
       - name: Terraform Plan (dev preview)
         run: terraform plan -refresh=false -input=false -var-file=environments/dev.tfvars
@@ -199,6 +199,7 @@ jobs:
       - name: Terraform Init (remote backend)
         run: |
           terraform init \
+            -reconfigure \
             -backend-config="resource_group_name=${{ env.TF_STATE_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ env.TF_STATE_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=${{ env.TF_STATE_CONTAINER }}" \
