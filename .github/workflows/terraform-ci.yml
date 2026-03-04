@@ -27,9 +27,9 @@ env:
   TF_IN_AUTOMATION: "true"
   TF_CLI_ARGS_init: "-input=false -no-color"
   TF_CLI_ARGS_validate: "-no-color"
-  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: "9f0df855-a264-41df-9458-e7260b67251f"
+  AZURE_TENANT_ID: "4d914164-b009-4eec-88f4-a623fbcb11ef"
+  AZURE_SUBSCRIPTION_ID: "b69dedcd-cfb8-4ec6-ba75-987e53dd2fd2"
 
 jobs:
   terraform:
