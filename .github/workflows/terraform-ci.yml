@@ -30,11 +30,11 @@ env:
   AZURE_CLIENT_ID: "9f0df855-a264-41df-9458-e7260b67251f"
   AZURE_TENANT_ID: "4d914164-b009-4eec-88f4-a623fbcb11ef"
   AZURE_SUBSCRIPTION_ID: "b69dedcd-cfb8-4ec6-ba75-987e53dd2fd2"
-  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  ARM_USE_OIDC: "true"
+  ARM_USE_AZUREAD: "true"
   ARM_CLIENT_ID: "9f0df855-a264-41df-9458-e7260b67251f"
   ARM_TENANT_ID: "4d914164-b009-4eec-88f4-a623fbcb11ef"
   ARM_SUBSCRIPTION_ID: "b69dedcd-cfb8-4ec6-ba75-987e53dd2fd2"
-  ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
 
 jobs:
   terraform:
@@ -61,14 +61,13 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Azure Login (Service Principal)
+      - name: Azure Login (OIDC)
         if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != '' }}
         uses: azure/login@v2
         with:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-          client-secret: ${{ env.AZURE_CLIENT_SECRET }}
 
       - name: Terraform Plan
         if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != '' }}
