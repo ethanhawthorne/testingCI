@@ -36,6 +36,13 @@ env:
   ACA_ENV_NAME: "testingci-env"
   ACA_FRONT_APP: "front-testingci-dev"
   ACA_BACK_APP: "back-testingci-dev"
+  APP_DB_USER: ${{ secrets.APP_DB_USER }}
+  APP_DB_PASSWORD: ${{ secrets.APP_DB_PASSWORD }}
+  APP_DB_HOST: ${{ secrets.APP_DB_HOST }}
+  APP_DB_PORT: ${{ secrets.APP_DB_PORT }}
+  APP_DB_NAME: ${{ secrets.APP_DB_NAME }}
+  APP_DB_SCHEMA: ${{ secrets.APP_DB_SCHEMA }}
+  APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
 
 jobs:
   basics:
@@ -228,12 +235,15 @@ jobs:
           }
 
           BACK_IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME_BACK }}:${{ env.IMAGE_TAG_SHA }}"
+          BACK_ENV_VARS="PORT=3001 BCRYPT_SALT_ROUNDS=12 DB_USER=${{ env.APP_DB_USER }} DB_PASSWORD=${{ env.APP_DB_PASSWORD }} DB_HOST=${{ env.APP_DB_HOST }} DB_PORT=${{ env.APP_DB_PORT }} DB_NAME=${{ env.APP_DB_NAME }} DB_SCHEMA=${{ env.APP_DB_SCHEMA }} JWT_SECRET=${{ env.APP_JWT_SECRET }} JWT_EXPIRES_IN=24h ENABLE_JOB_APPLICATIONS=true ENABLE_ADD_JOB_ROLE=true"
           if az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" >/dev/null 2>&1; then
             retry_cmd "az containerapp registry set -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --server '${{ env.ACR_LOGIN_SERVER }}' --username '$ACR_USER' --password '$ACR_PASS'"
-            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --image '$BACK_IMAGE'"
+            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --image '$BACK_IMAGE' --set-env-vars $BACK_ENV_VARS"
           else
-            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$BACK_IMAGE' --target-port 3001 --ingress internal --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS'"
+            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$BACK_IMAGE' --target-port 3001 --ingress internal --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS' --env-vars $BACK_ENV_VARS"
           fi
+          BACK_FQDN=$(az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" --query properties.configuration.ingress.fqdn -o tsv)
+          echo "BACKEND_API_URL=https://$BACK_FQDN" >> "$GITHUB_ENV"
 
       - name: Deploy frontend app (external)
         run: |
@@ -267,17 +277,23 @@ jobs:
           }
 
           FRONT_IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME_FRONT }}:${{ env.IMAGE_TAG_SHA }}"
+          FRONT_ENV_VARS="PORT=3000 API_BASE_URL=$BACKEND_API_URL FRONTEND_URL=https://${{ env.ACA_FRONT_APP }} ENABLE_JOB_APPLICATIONS=true ENABLE_ADD_JOB_ROLE=true"
           if az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" >/dev/null 2>&1; then
             retry_cmd "az containerapp registry set -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --server '${{ env.ACR_LOGIN_SERVER }}' --username '$ACR_USER' --password '$ACR_PASS'"
-            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --image '$FRONT_IMAGE' --target-port 3000"
+            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --image '$FRONT_IMAGE' --target-port 3000 --set-env-vars $FRONT_ENV_VARS"
           else
-            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$FRONT_IMAGE' --target-port 3000 --ingress external --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS'"
+            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$FRONT_IMAGE' --target-port 3000 --ingress external --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS' --env-vars $FRONT_ENV_VARS"
           fi
 
       - name: Show frontend URL
         run: |
           FQDN=$(az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" --query properties.configuration.ingress.fqdn -o tsv)
           echo "Frontend URL: https://$FQDN"
+
+      - name: Update backend CORS origin
+        run: |
+          FRONT_FQDN=$(az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" --query properties.configuration.ingress.fqdn -o tsv)
+          az containerapp update -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" --set-env-vars FRONTEND_URL="https://$FRONT_FQDN"
 
   terraform_plan:
     name: Terraform Plan (branches/PR)
