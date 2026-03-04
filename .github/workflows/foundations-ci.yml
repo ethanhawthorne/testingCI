@@ -198,22 +198,80 @@ jobs:
 
       - name: Deploy backend app (internal)
         run: |
+          retry_cmd() {
+            local cmd="$1"
+            local attempts=0
+            local max_attempts=15
+            while true; do
+              set +e
+              output=$(eval "$cmd" 2>&1)
+              code=$?
+              set -e
+              if [ $code -eq 0 ]; then
+                echo "$output"
+                break
+              fi
+              if echo "$output" | grep -q "ContainerAppOperationInProgress"; then
+                attempts=$((attempts + 1))
+                if [ $attempts -ge $max_attempts ]; then
+                  echo "$output"
+                  echo "Timed out waiting for container app operation to finish"
+                  exit 1
+                fi
+                echo "Container app operation in progress; retrying in 20s ($attempts/$max_attempts)"
+                sleep 20
+              else
+                echo "$output"
+                exit $code
+              fi
+            done
+          }
+
           BACK_IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME_BACK }}:${{ env.IMAGE_TAG_SHA }}"
           if az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" >/dev/null 2>&1; then
-            az containerapp registry set -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" --server "${{ env.ACR_LOGIN_SERVER }}" --username "$ACR_USER" --password "$ACR_PASS"
-            az containerapp update -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" --image "$BACK_IMAGE"
+            retry_cmd "az containerapp registry set -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --server '${{ env.ACR_LOGIN_SERVER }}' --username '$ACR_USER' --password '$ACR_PASS'"
+            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --image '$BACK_IMAGE'"
           else
-            az containerapp create -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_BACK_APP }}" --environment "${{ env.ACA_ENV_NAME }}" --image "$BACK_IMAGE" --target-port 3001 --ingress internal --registry-server "${{ env.ACR_LOGIN_SERVER }}" --registry-username "$ACR_USER" --registry-password "$ACR_PASS"
+            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_BACK_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$BACK_IMAGE' --target-port 3001 --ingress internal --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS'"
           fi
 
       - name: Deploy frontend app (external)
         run: |
+          retry_cmd() {
+            local cmd="$1"
+            local attempts=0
+            local max_attempts=15
+            while true; do
+              set +e
+              output=$(eval "$cmd" 2>&1)
+              code=$?
+              set -e
+              if [ $code -eq 0 ]; then
+                echo "$output"
+                break
+              fi
+              if echo "$output" | grep -q "ContainerAppOperationInProgress"; then
+                attempts=$((attempts + 1))
+                if [ $attempts -ge $max_attempts ]; then
+                  echo "$output"
+                  echo "Timed out waiting for container app operation to finish"
+                  exit 1
+                fi
+                echo "Container app operation in progress; retrying in 20s ($attempts/$max_attempts)"
+                sleep 20
+              else
+                echo "$output"
+                exit $code
+              fi
+            done
+          }
+
           FRONT_IMAGE="${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME_FRONT }}:${{ env.IMAGE_TAG_SHA }}"
           if az containerapp show -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" >/dev/null 2>&1; then
-            az containerapp registry set -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" --server "${{ env.ACR_LOGIN_SERVER }}" --username "$ACR_USER" --password "$ACR_PASS"
-            az containerapp update -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" --image "$FRONT_IMAGE"
+            retry_cmd "az containerapp registry set -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --server '${{ env.ACR_LOGIN_SERVER }}' --username '$ACR_USER' --password '$ACR_PASS'"
+            retry_cmd "az containerapp update -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --image '$FRONT_IMAGE'"
           else
-            az containerapp create -g "${{ env.ACA_RESOURCE_GROUP }}" -n "${{ env.ACA_FRONT_APP }}" --environment "${{ env.ACA_ENV_NAME }}" --image "$FRONT_IMAGE" --target-port 80 --ingress external --registry-server "${{ env.ACR_LOGIN_SERVER }}" --registry-username "$ACR_USER" --registry-password "$ACR_PASS"
+            retry_cmd "az containerapp create -g '${{ env.ACA_RESOURCE_GROUP }}' -n '${{ env.ACA_FRONT_APP }}' --environment '${{ env.ACA_ENV_NAME }}' --image '$FRONT_IMAGE' --target-port 80 --ingress external --registry-server '${{ env.ACR_LOGIN_SERVER }}' --registry-username '$ACR_USER' --registry-password '$ACR_PASS'"
           fi
 
       - name: Show frontend URL
