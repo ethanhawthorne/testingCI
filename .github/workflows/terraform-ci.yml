@@ -10,6 +10,11 @@ on:
     paths:
       - "my-infrastructure/**"
       - ".github/workflows/terraform-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -17,7 +22,10 @@ permissions:
 
 env:
   TF_WORKING_DIR: my-infrastructure
+  TF_VERSION: "1.8.5"
   TF_IN_AUTOMATION: "true"
+  TF_CLI_ARGS_init: "-input=false -no-color"
+  TF_CLI_ARGS_validate: "-no-color"
   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
   AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
   AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
@@ -36,7 +44,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.8.5
+          terraform_version: ${{ env.TF_VERSION }}
 
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
@@ -57,4 +65,12 @@ jobs:
 
       - name: Terraform Plan
         if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != '' }}
-        run: terraform plan -no-color -input=false -var-file=terraform.tfvars
+        run: terraform plan -no-color -input=false -var-file=terraform.tfvars -out=tfplan
+
+      - name: Save Terraform Plan
+        if: ${{ env.AZURE_CLIENT_ID != '' && env.AZURE_TENANT_ID != '' && env.AZURE_SUBSCRIPTION_ID != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ github.run_id }}
+          path: my-infrastructure/tfplan
+          if-no-files-found: ignore
